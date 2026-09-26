@@ -3,12 +3,12 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { loadConfig, validateConfig } from "../src/config.mjs";
+import { defaultConfig, loadConfig, validateConfig } from "../src/config.mjs";
 
 test("missing config gives empty defaults", () => {
   const dir = mkdtempSync(join(tmpdir(), "codemap-cfg-"));
   try {
-    assert.deepEqual(loadConfig(dir), { exclude: [], describe: {} });
+    assert.deepEqual(loadConfig(dir), { exclude: [], describe: {}, groups: [], sectionDepth: 2, links: true });
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -20,6 +20,7 @@ test("valid config is normalised", () => {
     describe: { "./lib/items/": "  Item types  ", "app\\api": "Routes" },
   });
   assert.deepEqual(cfg, {
+    ...defaultConfig(),
     exclude: ["*.png"],
     describe: { "lib/items": "Item types", "app/api": "Routes" },
   });
@@ -44,4 +45,19 @@ test("invalid JSON names the file", () => {
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("groups, sectionDepth and links are validated", () => {
+  const cfg = validateConfig({ groups: [{ name: " A ", paths: ["x"] }], sectionDepth: 3, links: false });
+  assert.deepEqual(cfg.groups, [{ name: "A", paths: ["x"] }]);
+  assert.equal(cfg.sectionDepth, 3);
+  assert.equal(cfg.links, false);
+
+  const g = (n) => Array.from({ length: n }, (_, i) => ({ name: `g${i}`, paths: ["x"] }));
+  assert.throws(() => validateConfig({ groups: g(5) }), /at most 4/);
+  assert.throws(() => validateConfig({ groups: [{ name: "A", paths: [] }] }), /paths" must be a non-empty array/);
+  assert.throws(() => validateConfig({ groups: [{ name: "A", paths: ["x"], colour: "red" }] }), /unknown key "colour"/);
+  assert.throws(() => validateConfig({ sectionDepth: 0 }), /from 1 to 5/);
+  assert.throws(() => validateConfig({ sectionDepth: 2.5 }), /from 1 to 5/);
+  assert.throws(() => validateConfig({ links: "yes" }), /true or false/);
 });
