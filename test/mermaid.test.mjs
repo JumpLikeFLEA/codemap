@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { approx, renderDiagram, renderMarkdown } from "../src/mermaid.mjs";
+import { renderDiagram, renderMarkdown } from "../src/mermaid.mjs";
 import { annotate, buildTree, compact } from "../src/tree.mjs";
 
 const make = (paths, describe = {}) => {
@@ -9,12 +9,6 @@ const make = (paths, describe = {}) => {
   return compact(t);
 };
 const nodeLines = (text) => text.split("\n").filter((l) => /^\s+n\d+\[/.test(l));
-
-test("approx rounds to two significant figures", () => {
-  assert.deepEqual([0, 34, 99, 162, 239, 999, 1521, 11698, 33430, 91626, 2_345_678].map(approx), [
-    "0", "34", "99", "160", "240", "1k", "1.5k", "12k", "33k", "92k", "2.3M",
-  ]);
-});
 
 test("depth limit: folders beyond it are not drawn, the cut folder is dashed", () => {
   const t = make(["a/b/c/x.ts", "a/b/d/y.ts", "a/e.ts", "z.ts"]);
@@ -25,11 +19,12 @@ test("depth limit: folders beyond it are not drawn, the cut folder is dashed", (
   assert.match(text, /class n1 collapsed/);
 });
 
-test("plain files are counted, described files are drawn", () => {
-  const t = make(["src/a.ts", "src/b.ts", "proxy.ts"], { "proxy.ts": "Route gating" });
+test("labels are name + description only; only described files are drawn", () => {
+  const t = make(["src/a.ts", "src/b.ts", "proxy.ts"], { "proxy.ts": "Route gating", src: "Sources" });
   const { text } = renderDiagram(t, 1);
   assert.match(text, /\["proxy\.ts<br\/><i>Route gating<\/i>"\]/);
-  assert.match(text, /<small>2 files · 20 lines<\/small>/);
+  assert.match(text, /\["<b>src<\/b><br\/><i>Sources<\/i>"\]/);
+  assert.ok(!/files|lines|<small>/.test(text), "no counts");
   assert.ok(!text.includes("a.ts"));
 });
 
@@ -63,7 +58,7 @@ test("markdown: overview, legend, one <details> per top-level folder with subfol
   const md = renderMarkdown(t, { groups: [{ name: "Alliengll", paths: ["x"] }] });
   assert.equal(md.match(/```mermaid/g).length, 2, "overview + app section; lib has no subfolders");
   assert.match(md, /<sub>🟨 Alliengll · dashed border/);
-  assert.match(md, /<summary><b>app\/<\/b> — 2 files · 20 lines — Routes<\/summary>/);
+  assert.match(md, /<summary><b>app\/<\/b> — Routes<\/summary>/);
   assert.ok(!md.includes("<b>lib/</b>"));
 });
 

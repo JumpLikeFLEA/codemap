@@ -8,12 +8,16 @@
 // in a README, and it lets the reader open one area at a time.
 //
 // What is drawn: folders down to the depth limit, plus any FILE that has a
-// description in the config. Other files appear only as counts, so the
-// config decides which files matter enough to be on the map.
+// description in the config, so the config decides which files matter
+// enough to be on the map. Boxes carry a name and a description only: file
+// and line counts were dropped as noise (and they churned the README on
+// every commit).
 //
 // Links: GitHub blocks Mermaid `click` directives (the diagram runs in a
 // sandboxed iframe), but an <a href> inside a node label works, so the node
-// NAME is the link. See the README's "Links on GitHub" note.
+// NAME is the link.
+
+import { webUrl } from "./webUrl.mjs";
 
 // Fills are light with dark text so they stay readable on GitHub's light and
 // dark themes alike. The emoji square is the legend swatch for each colour.
@@ -39,7 +43,7 @@ export function renderMarkdown(tree, { groups = [], sectionDepth = 2, link = nul
     out.push(
       [
         "<details>",
-        `<summary><b>${escapeHtml(dir.name)}/</b> — ${stats(dir)}${desc}</summary>`,
+        `<summary><b>${escapeHtml(dir.name)}/</b>${desc}</summary>`,
         "",
         fence(diagram.text),
         "",
@@ -101,38 +105,9 @@ function label(node, link, isRepoRoot) {
   // color:inherit: the browser's default link blue is unreadable on dark
   // theme node fills; the underline still marks the name as a link.
   const title = href ? `<a href='${href}' style='color:inherit'>${name}</a>` : name;
-  const parts = node.kind === "dir" ? [`<b>${title}</b>`, `<small>${stats(node)}</small>`] : [title];
+  const parts = [node.kind === "dir" ? `<b>${title}</b>` : title];
   if (node.description) parts.push(`<i>${escapeLabel(node.description)}</i>`);
   return parts.join("<br/>");
-}
-
-function webUrl({ base, branch }, node, isRepoRoot) {
-  if (isRepoRoot) return base;
-  const kind = node.kind === "dir" ? "tree" : "blob";
-  const path = node.path.split("/").map(encodeSegment).join("/");
-  return `${base}/${kind}/${encodeSegment(branch)}/${path}`;
-}
-
-// encodeURIComponent leaves ' ( ) unencoded; the label wraps href in single
-// quotes, so ' must be encoded too.
-function encodeSegment(s) {
-  return encodeURIComponent(s).replace(/'/g, "%27");
-}
-
-export function stats(dir) {
-  const files = `${dir.files} ${dir.files === 1 ? "file" : "files"}`;
-  return dir.lines > 0 ? `${files} · ${approx(dir.lines)} lines` : files;
-}
-
-// Two significant figures: 33430 → "33k", 1521 → "1.5k", 239 → "240".
-// Exact line counts would change the README on every commit and make
-// `--check` fail constantly; rounded ones move only on real growth.
-export function approx(n) {
-  if (n < 100) return String(n);
-  const p = Number(n.toPrecision(2));
-  if (p >= 1e6) return `${p / 1e6}M`;
-  if (p >= 1e3) return `${p / 1e3}k`;
-  return String(p);
 }
 
 function hasSubfolders(node) {
